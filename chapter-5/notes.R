@@ -152,6 +152,13 @@ for ( i in 1:nrow(d) ) {
   points( d$Divorce[j]-c(divorce.rate.simulations.PI[1,j], divorce.rate.simulations.PI[2,j]), rep(i,2), pch=3 , cex=0.6 , col="gray" )
 }
 
+# 5.15 - manufacturing spurious association
+N <- 100                           # number of cases
+x_real <- rnorm(N)                 # x_real as Gaussian w/ mean 0 and stddev 1
+x_spur <- rnorm(N, x_real)         # x_spur as Gaussian w/ mean=x_real
+y <- rnorm(N, x_real)              # y as Gaussian w/ mean=x_real
+d <- data.frame(y,x_real,x_spur)   # bind all together in data frame
+
 ## 5.16
 data(milk)
 d <- milk
