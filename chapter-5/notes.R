@@ -159,10 +159,185 @@ x_spur <- rnorm(N, x_real)         # x_spur as Gaussian w/ mean=x_real
 y <- rnorm(N, x_real)              # y as Gaussian w/ mean=x_real
 d <- data.frame(y,x_real,x_spur)   # bind all together in data frame
 
+# x_spur will easily predict y, but if you put both x_real and x_spur in, x_spur gets knocked out
+
+
 ## 5.16
 data(milk)
 d <- milk
 str(d)
+pairs(~kcal.per.g+log(mass)+neocortex.perc, data=d)
+
+## 5.18
+d$neocortex.perc # missing values!
+## 5.19
+dcc <- d[complete.cases(d), ]
+
+## 5.(20?)
+m5.5 <- map(
+  alist(
+    kcal.per.g~dnorm(mu,sigma),
+    mu <- a + bp*neocortex.perc,
+    a ~ dnorm(0,100),
+    bp ~ dnorm(0,1),
+    sigma ~ dunif(0,1)
+  ),
+  data=dcc
+)
+
+## 5.21
+precis(m5.5, digits=3)
+
+## 5.22
+coef(m5.5)["bp"] * ( 76 - 55 ) # a change from smallest to largest 
+                               # neocortex (55-75) would result in expected change:
+
+## 5.23
+np.seq <- 0:100
+pred.data <- data.frame( neocortex.perc=np.seq )
+mu <- link( m5.5 , data=pred.data , n=1e4 )
+mu.mean <- apply( mu , 2 , mean )
+mu.PI <- apply( mu , 2 , PI )
+plot( kcal.per.g ~ neocortex.perc , data=dcc , col=rangi2 )
+lines( np.seq , mu.mean )
+lines( np.seq , mu.PI[1,] , lty=2 )
+lines( np.seq , mu.PI[2,] , lty=2 )
+
+## 5.24
+dcc$log.mass <- log(dcc$mass)
+
+## 5.26
+m5.7 <- map(
+  alist(
+    kcal.per.g ~ dnorm( mu , sigma ) ,
+    mu <- a + bn*neocortex.perc + bm*log.mass ,
+    a ~ dnorm( 0 , 100 ) ,
+    bn ~ dnorm( 0 , 1 ) ,
+    bm ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 1 )
+  ),
+  data=dcc)
+precis( m5.7)
+
+## 5.27
+mean.log.mass <- mean( log(dcc$mass) )
+np.seq <- 0:100
+pred.data <- data.frame(
+  neocortex.perc=np.seq,
+  log.mass=mean.log.mass
+)
+mu <- link( m5.7 , data=pred.data , n=1e4 )
+mu.mean <- apply( mu , 2 , mean )
+mu.PI <- apply( mu , 2 , PI )
+plot( kcal.per.g ~ neocortex.perc , data=dcc , type="n" )
+lines( np.seq , mu.mean )
+lines( np.seq , mu.PI[1,] , lty=2 )
+lines( np.seq , mu.PI[2,] , lty=2 )
+
+## 5.28
+N <- 100                         # number of cases
+rho <- 0.7                       # correlation btw x_pos and x_neg
+x_pos <- rnorm( N )              # x_pos as Gaussian
+x_neg <- rnorm( N , rho*x_pos ,  # x_neg correlated with x_pos
+                sqrt(1-rho^2) )
+y <- rnorm( N , x_pos - x_neg )  # y equally associated with x_pos, x_neg
+d <- data.frame(y,x_pos,x_neg)   # bind all together in data frame
+
+pairs(d)
+
+## 5.29 - predict height w/ left or right leg   
+N <- 100                         # number of individuals
+height <- rnorm(N,10,2)          # sim total height of each              
+leg_prop <- runif(N,0.4,0.5)     # leg as proportion of height                    
+leg_left <- leg_prop*height +    # sim left leg as proportion + error                     
+  rnorm( N , 0 , 0.02 )
+leg_right <- leg_prop*height +   # sim right leg as proportion + error                      
+  rnorm( N , 0 , 0.02 )
+d <-                             # combine into data frame                      
+  data.frame(height,leg_left,leg_right)   
+
+## 5.30
+m5.8 <- map(
+  alist(
+    height ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*leg_left + br*leg_right ,
+    a ~ dnorm( 10 , 100 ) ,
+    bl ~ dnorm( 2 , 10 ) ,
+    br ~ dnorm( 2 , 10 ) ,
+    sigma ~ dunif( 0 , 10 )
+  ),
+  data=d )
+precis(m5.8)
+plot(precis(m5.8))
+post <- extract.samples(m5.8)
+plot( bl ~ br , post , col=col.alpha(rangi2,0.1) , pch=16 )
+
+## 5.33
+sum_blbr <- post$bl + post$br
+dens( sum_blbr , col=rangi2 , lwd=2 , xlab="sum of bl and br" )
+
+d$leg_total <- d$leg_left + d$leg_right
+plot(height~leg_total, d, col=rangi2)
+leg_list <- seq(from=1,to=15,length.out=30)
+leg_dat <- list(leg_left=leg_list,
+                leg_right=leg_list)
+mu <- link(m5.8, data=leg_dat)
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
+lines(leg_list*2, mu.mean)
+shade(mu.PI, leg_list*2)
+
+## 5.34
+m5.9 <- map(
+  alist(
+    height ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*leg_left,
+    a ~ dnorm( 10 , 100 ) ,
+    bl ~ dnorm( 2 , 10 ) ,
+    sigma ~ dunif( 0 , 10 ) ),
+  data=d )
+precis(m5.9)
+plot(precis(m5.9))
+
+## 5.36
+# kcal.per.g regressed on perc.fat
+m5.10 <- map(
+  alist(
+    kcal.per.g ~ dnorm( mu , sigma ) ,
+    mu <- a + bf*perc.fat ,
+    a ~ dnorm( 0.6 , 10 ) ,
+    bf ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+  ),
+  data=dcc )
+# kcal.per.g regressed on perc.lactose
+m5.11 <- map(
+  alist(
+    kcal.per.g ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*perc.lactose ,
+    a ~ dnorm( 0.6 , 10 ) ,
+    bl ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+  ), data=dcc )
+precis( m5.10 , digits=3 )
+precis( m5.11 , digits=3 )
+
+## 5.37
+m5.12 <- map(
+  alist(
+    kcal.per.g ~ dnorm( mu , sigma ) ,
+    mu <- a + bf*perc.fat + bl*perc.lactose ,
+    a ~ dnorm( 0.6 , 10 ) ,
+    bf ~ dnorm( 0 , 1 ) ,
+    bl ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+  ),
+  data=dcc )
+precis( m5.12 , digits=3 )
+
+## 5.38
+pairs( ~ kcal.per.g + perc.fat + perc.lactose ,
+       data=dcc , col=rangi2 )
 
 ## 5.62
 data(cars)
